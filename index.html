@@ -346,16 +346,17 @@ td{padding:10px 1.1rem;vertical-align:middle}
           <button class="btn btn-sm btn-p" onclick="openHTML()">↗ Open</button>
         </div>
       </div>
-      <div style="background:var(--sur2);border-bottom:1px solid var(--bdr);padding:7px 14px;display:flex;align-items:center;gap:8px">
-        <div style="display:flex;gap:5px"><div style="width:10px;height:10px;border-radius:50%;background:#ff5f57"></div><div style="width:10px;height:10px;border-radius:50%;background:#ffbd2e"></div><div style="width:10px;height:10px;border-radius:50%;background:#28c840"></div></div>
-        <div id="gen-url-bar" style="flex:1;background:var(--sur);border:1px solid var(--bdr);border-radius:6px;padding:3px 10px;font-size:11px;color:var(--mu)">preview</div>
-      </div>
-      <div id="gen-frame-wrap" style="position:relative;height:640px;background:#f8f8f8">
-        <div id="gen-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#f8f8f8;z-index:2;flex-direction:column;gap:12px">
-          <div class="spin" style="width:24px;height:24px;border-width:3px"></div>
-          <div style="font-size:13px;color:var(--mu)">Loading preview…</div>
+      <div id="gen-frame-wrap" style="display:none"></div>
+      <div id="gen-preview-card" style="display:none;flex-direction:column;align-items:center;justify-content:center;padding:3rem;background:var(--sur2);border-top:1px solid var(--bdr);gap:1rem;text-align:center">
+        <div style="font-size:2.5rem">✅</div>
+        <div style="font-size:16px;font-weight:600;color:var(--tx)">Website Generated!</div>
+        <div style="font-size:13px;color:var(--mu)"><span class="prev-chars"></span> · <span class="prev-time"></span></div>
+        <div style="display:flex;gap:8px;margin-top:.5rem;flex-wrap:wrap;justify-content:center">
+          <button class="btn btn-p" onclick="openHTML()" style="font-size:14px;padding:10px 24px">↗ Open Website</button>
+          <button class="btn" onclick="cpyHTML()">📋 Copy HTML</button>
+          <button class="btn" onclick="dlHTML()">⬇ Download</button>
         </div>
-        <iframe id="gen-frame" style="width:100%;height:640px;border:none;background:#fff;" onload="iframeLoaded()"></iframe>
+        <div style="font-size:12px;color:var(--hi);margin-top:.5rem">Opens in a new tab — fully rendered with all fonts and animations</div>
       </div>
       <pre id="gen-code" style="display:none;padding:1.25rem;font-family:monospace;font-size:12px;color:#a5b4fc;background:#0f0f1a;max-height:640px;overflow:auto;white-space:pre;line-height:1.6"></pre>
     </div>
@@ -981,20 +982,17 @@ async function runGen(){
     setTimeout(()=>{
       $('gen-bar').style.display='none';
       $('gen-code').textContent=genHTML;
-      $('gen-code').style.display='none';
-      $('gen-loading').style.display='none';
-      $('gen-frame').style.opacity='1';
-      $('gen-frame-wrap').style.display='block';
-      $('tb-prev').classList.add('on');$('tb-code').classList.remove('on');
       $('gen-result').style.display='block';
       $('gen-meta').textContent=genHTML.length.toLocaleString()+' characters · '+((Date.now()-t0)/1000).toFixed(1)+'s';
-      $('gen-url-bar').textContent='preview · '+genHTML.length.toLocaleString()+' chars';
-      // Write directly into iframe document — most reliable method
-      const frame=$('gen-frame');
-      const doc=frame.contentDocument||frame.contentWindow.document;
-      doc.open();
-      doc.write(genHTML);
-      doc.close();
+      // Show success state — open in new tab is the reliable preview
+      $('gen-frame-wrap').style.display='none';
+      $('gen-code').style.display='none';
+      $('tb-prev').classList.add('on');$('tb-code').classList.remove('on');
+      // Show a preview card instead of broken iframe
+      const prevCard=document.getElementById('gen-preview-card');
+      prevCard.style.display='flex';
+      prevCard.querySelector('.prev-chars').textContent=genHTML.length.toLocaleString()+' chars';
+      prevCard.querySelector('.prev-time').textContent=((Date.now()-t0)/1000).toFixed(1)+'s';
       
       $('gen-result').scrollIntoView({behavior:'smooth',block:'start'});
       addAct('Generated site: '+prompt.slice(0,55)+(prompt.length>55?'…':''));
@@ -1011,14 +1009,18 @@ async function runGen(){
 
 function gTab(t,btn){
   document.querySelectorAll('#pg-gen .tb').forEach(b=>b.classList.remove('on'));btn.classList.add('on');
-  $('gen-frame-wrap').style.display=t==='prev'?'block':'none';
+  $('gen-preview-card').style.display=t==='prev'?'flex':'none';
   $('gen-code').style.display=t==='code'?'block':'none';
 }
 function cpyHTML(){navigator.clipboard.writeText(genHTML).then(()=>{const b=$('cpy-btn');b.textContent='✓ Copied!';setTimeout(()=>b.textContent='📋 Copy',2000)})}
 function dlHTML(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([genHTML],{type:'text/html'}));a.download='landing-page.html';a.click()}
 function openHTML(){
-  if(lastPrevId)window.open('/preview/'+lastPrevId,'_blank');
-  else if(genHTML){const b=new Blob([genHTML],{type:'text/html'});window.open(URL.createObjectURL(b),'_blank');}
+  if(lastPrevId){
+    window.open('/preview/'+lastPrevId,'_blank');
+  } else {
+    const b=new Blob([genHTML],{type:'text/html;charset=utf-8'});
+    window.open(URL.createObjectURL(b),'_blank');
+  }
 }
 
 // ── SETTINGS ──
