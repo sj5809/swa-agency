@@ -122,7 +122,7 @@ Build the COMPLETE page — all 8 sections, all CSS, all JS. Do not stop early.`
 
     const stream = await ai.messages.stream({
       model: "claude-sonnet-4-6",
-      max_tokens: 16000,
+      max_tokens: 32000,
       system: systemPrompt,
       messages: [{ role: "user", content: `Build a complete, extraordinary website for this business. Read the description carefully and make design decisions that genuinely fit this business's personality and customers:\n\n${prompt.trim()}` }],
     });
