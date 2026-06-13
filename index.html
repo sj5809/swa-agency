@@ -355,7 +355,7 @@ td{padding:10px 1.1rem;vertical-align:middle}
           <div class="spin" style="width:24px;height:24px;border-width:3px"></div>
           <div style="font-size:13px;color:var(--mu)">Loading preview…</div>
         </div>
-        <iframe id="gen-frame" style="width:100%;height:640px;border:none;background:#fff;opacity:0;transition:opacity .3s" onload="iframeLoaded()"></iframe>
+        <iframe id="gen-frame" style="width:100%;height:640px;border:none;background:#fff;" onload="iframeLoaded()"></iframe>
       </div>
       <pre id="gen-code" style="display:none;padding:1.25rem;font-family:monospace;font-size:12px;color:#a5b4fc;background:#0f0f1a;max-height:640px;overflow:auto;white-space:pre;line-height:1.6"></pre>
     </div>
@@ -898,7 +898,10 @@ function renderCBilling(cid){
 // ── AI GENERATOR ──
 let genHTML='',lastPrevId=null;
 
-function iframeLoaded(){} // unused with srcdoc
+function iframeLoaded(){
+  $('gen-loading').style.display='none';
+  $('gen-frame').style.opacity='1';
+}
 
 async function runGen(){
   const prompt=$('gen-txt').value.trim();
@@ -966,7 +969,7 @@ async function runGen(){
 
     // No injection needed - CSS keyframes handle all animations
 
-    // Save to server and load via real URL — works perfectly on render.com
+    // Save to server for "Open" button
     let previewId=null;
     try{
       const sv=await fetch('/api/save-preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({html:genHTML})});
@@ -979,20 +982,19 @@ async function runGen(){
       $('gen-bar').style.display='none';
       $('gen-code').textContent=genHTML;
       $('gen-code').style.display='none';
-      $('gen-loading').style.display='flex';
-      $('gen-frame').style.opacity='0';
+      $('gen-loading').style.display='none';
+      $('gen-frame').style.opacity='1';
       $('gen-frame-wrap').style.display='block';
       $('tb-prev').classList.add('on');$('tb-code').classList.remove('on');
       $('gen-result').style.display='block';
       $('gen-meta').textContent=genHTML.length.toLocaleString()+' characters · '+((Date.now()-t0)/1000).toFixed(1)+'s';
-      if(previewId){
-        $('gen-url-bar').textContent=window.location.host+'/preview/'+previewId;
-        $('gen-frame').src='/preview/'+previewId;
-      } else {
-        $('gen-frame').srcdoc=genHTML;
-        $('gen-loading').style.display='none';
-        $('gen-frame').style.opacity='1';
-      }
+      $('gen-url-bar').textContent='preview · '+genHTML.length.toLocaleString()+' chars';
+      // Write directly into iframe document — most reliable method
+      const frame=$('gen-frame');
+      const doc=frame.contentDocument||frame.contentWindow.document;
+      doc.open();
+      doc.write(genHTML);
+      doc.close();
       
       $('gen-result').scrollIntoView({behavior:'smooth',block:'start'});
       addAct('Generated site: '+prompt.slice(0,55)+(prompt.length>55?'…':''));
