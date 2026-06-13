@@ -1,0 +1,14 @@
+{
+  "name": "sebastians-website-agency",
+  "version": "2.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2"
+  }
+}
