@@ -12,6 +12,7 @@ app.use(express.json({ limit: "4mb" }));
 app.use(express.static(__dirname));
 
 const ai = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const siteStore = new Map();
 
 function checkKey(res) {
   if (!process.env.ANTHROPIC_API_KEY) {
@@ -20,6 +21,26 @@ function checkKey(res) {
   }
   return true;
 }
+
+// ── PREVIEW STORE ──
+app.post("/api/save-preview", (req, res) => {
+  const { html } = req.body;
+  if (!html) return res.status(400).json({ error: "No HTML" });
+  const id = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  const cleaned = html.replace(/^```html\s*/i,'').replace(/^```\s*/i,'').replace(/```\s*$/i,'').trim();
+  siteStore.set(id, cleaned);
+  if (siteStore.size > 50) siteStore.delete([...siteStore.keys()][0]);
+  console.log(`Saved preview ${id} — ${cleaned.length} chars`);
+  res.json({ id });
+});
+
+app.get("/preview/:id", (req, res) => {
+  const html = siteStore.get(req.params.id);
+  if (!html) return res.status(404).send("<h2>Preview expired. Generate again.</h2>");
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Cache-Control", "no-store");
+  res.send(html);
+});
 
 // ── LEAD FINDER ──
 app.post("/api/leads", async (req, res) => {

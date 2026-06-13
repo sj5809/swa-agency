@@ -173,7 +173,18 @@ td{padding:10px 1.1rem;vertical-align:middle}
 </style>
 </head>
 <body>
-<div class="shell">
+<!-- LOGIN -->
+<div id="login-screen" style="position:fixed;inset:0;background:#1C3D2E;display:flex;align-items:center;justify-content:center;z-index:9999">
+  <div style="background:#fff;border-radius:16px;padding:2.5rem 2rem;width:340px;box-shadow:0 16px 48px rgba(0,0,0,0.2)">
+    <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:1.3rem;color:#1C3D2E;margin-bottom:.25rem">Sebastian's Agency</div>
+    <div style="font-size:12px;color:#79776E;margin-bottom:1.75rem">Business Manager — Sign in</div>
+    <input type="password" id="login-pw" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()" style="width:100%;padding:10px 12px;border:1px solid #E0DDD6;border-radius:10px;font-size:14px;font-family:'Inter',sans-serif;margin-bottom:1rem"/>
+    <button onclick="doLogin()" style="width:100%;padding:11px;background:#1C3D2E;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif">Sign In</button>
+    <div id="login-err" style="font-size:12px;color:#991B1B;margin-top:.5rem;display:none">Incorrect password.</div>
+  </div>
+</div>
+
+<div class="shell" id="main-shell" style="display:none">
 
 <!-- SIDEBAR -->
 <div class="sb">
@@ -887,10 +898,7 @@ function renderCBilling(cid){
 // ── AI GENERATOR ──
 let genHTML='',lastPrevId=null;
 
-function iframeLoaded(){
-  $('gen-loading').style.display='none';
-  $('gen-frame').style.opacity='1';
-}
+function iframeLoaded(){} // unused with srcdoc
 
 async function runGen(){
   const prompt=$('gen-txt').value.trim();
@@ -956,26 +964,35 @@ async function runGen(){
     prog.style.width='100%';
     stxt.textContent='Done! Rendering your site…';
 
-    // Fix: force animated elements visible — IntersectionObserver doesn't fire in blob iframes
-    const animFix='<script>(function(){function f(){document.querySelectorAll(\'.animate,.fade-in,.fade-up,.reveal,[data-aos]\').forEach(function(e){e.classList.add(\'visible\',\'animated\',\'aos-animate\');e.style.opacity=\'1\';e.style.transform=\'none\';e.style.visibility=\'visible\';});}if(document.readyState===\'loading\'){document.addEventListener(\'DOMContentLoaded\',f);}else{f();}setTimeout(f,100);setTimeout(f,600);}());<\/script>';
-    genHTML=genHTML.includes('</body>')?genHTML.replace('</body>',animFix+'</body>'):genHTML+animFix;
+    // No injection needed - CSS keyframes handle all animations
 
-    // Create blob URL — reliable, loads fonts/CSS/JS correctly
-    const blob=new Blob([genHTML],{type:'text/html;charset=utf-8'});
-    lastPrevId=URL.createObjectURL(blob);
+    // Save to server and load via real URL — works perfectly on render.com
+    let previewId=null;
+    try{
+      const sv=await fetch('/api/save-preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({html:genHTML})});
+      const svd=await sv.json();
+      previewId=svd.id;
+    }catch(e2){console.warn('Save failed:',e2);}
+    lastPrevId=previewId;
 
     setTimeout(()=>{
       $('gen-bar').style.display='none';
       $('gen-code').textContent=genHTML;
       $('gen-code').style.display='none';
-      $('gen-frame').style.opacity='0';
       $('gen-loading').style.display='flex';
+      $('gen-frame').style.opacity='0';
       $('gen-frame-wrap').style.display='block';
       $('tb-prev').classList.add('on');$('tb-code').classList.remove('on');
       $('gen-result').style.display='block';
       $('gen-meta').textContent=genHTML.length.toLocaleString()+' characters · '+((Date.now()-t0)/1000).toFixed(1)+'s';
-      $('gen-url-bar').textContent='preview · '+genHTML.length.toLocaleString()+' chars';
-      $('gen-frame').src=lastPrevId;
+      if(previewId){
+        $('gen-url-bar').textContent=window.location.host+'/preview/'+previewId;
+        $('gen-frame').src='/preview/'+previewId;
+      } else {
+        $('gen-frame').srcdoc=genHTML;
+        $('gen-loading').style.display='none';
+        $('gen-frame').style.opacity='1';
+      }
       
       $('gen-result').scrollIntoView({behavior:'smooth',block:'start'});
       addAct('Generated site: '+prompt.slice(0,55)+(prompt.length>55?'…':''));
@@ -998,8 +1015,8 @@ function gTab(t,btn){
 function cpyHTML(){navigator.clipboard.writeText(genHTML).then(()=>{const b=$('cpy-btn');b.textContent='✓ Copied!';setTimeout(()=>b.textContent='📋 Copy',2000)})}
 function dlHTML(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([genHTML],{type:'text/html'}));a.download='landing-page.html';a.click()}
 function openHTML(){
-  if(lastPrevId)window.open(lastPrevId,'_blank');
-  else if(genHTML)window.open(URL.createObjectURL(new Blob([genHTML],{type:'text/html'})),'_blank');
+  if(lastPrevId)window.open('/preview/'+lastPrevId,'_blank');
+  else if(genHTML){const b=new Blob([genHTML],{type:'text/html'});window.open(URL.createObjectURL(b),'_blank');}
 }
 
 // ── SETTINGS ──
@@ -1019,13 +1036,30 @@ function saveSettings(){
 }
 
 // ── INIT ──
-document.addEventListener('DOMContentLoaded',()=>{
+
+// ── LOGIN ──
+const PASS='Chezb@lz8';
+function doLogin(){
+  if(document.getElementById('login-pw').value===PASS){
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('main-shell').style.display='flex';
+    initAll();
+  } else {
+    document.getElementById('login-err').style.display='block';
+  }
+}
+function initAll(){
   $('dash-date').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
   $('bill-mo').textContent='Tracking: '+new Date().toLocaleDateString('en-US',{month:'long',year:'numeric'});
   loadSettings();
   renderDash();renderSavedLeads();renderClients();renderTasks();
   renderInvStats();renderInvoices();renderBillStats();renderBilling();
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('login-pw').focus();
 });
+
 </script>
+</div><!-- /main-shell -->
 </body>
 </html>
